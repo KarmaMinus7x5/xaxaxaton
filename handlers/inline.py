@@ -1,6 +1,3 @@
-"""
-Inline клавиатуры
-"""
 from typing import List
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from config.settings import TECH_TAGS

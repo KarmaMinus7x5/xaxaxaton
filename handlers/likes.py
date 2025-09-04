@@ -2,7 +2,7 @@ from aiogram import types, F, Router
 
 from database.database import async_session
 from database.crud import get_user
-from handlers.inline import get_back_to_menu_keyboard
+from handlers.inline import get_back_to_menu_keyboard  # Исправлен импорт
 from utils.formatters import format_likes_list
 
 likes_router = Router()
@@ -25,3 +25,4 @@ async def show_likes(callback: types.CallbackQuery):
             parse_mode="HTML"
         )
     await callback.answer()
+

@@ -1,13 +1,10 @@
-"""
-Обработчики просмотра анкет
-"""
 from aiogram import types, F, Router
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 
 from database.database import async_session
 from database.crud import get_user, get_next_profile, create_like
-from handlers.inline import get_profile_keyboard, get_main_menu_keyboard
+from handlers.inline import get_profile_keyboard, get_main_menu_keyboard  # Исправлен импорт
 from states.states import BrowsingStates
 from utils.formatters import format_profile
 from bot import bot

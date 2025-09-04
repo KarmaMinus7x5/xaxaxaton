@@ -7,7 +7,8 @@ from aiogram.fsm.context import FSMContext
 
 from database.database import async_session
 from database.crud import get_user, delete_user_data
-from handlers.inline import get_start_keyboard, get_main_menu_keyboard
+from handlers.inline import get_start_keyboard, get_main_menu_keyboard, get_role_keyboard
+from states.states import RegistrationStates
 
 router = Router()
 
@@ -39,18 +40,15 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
 
 @router.callback_query(F.data == "start_registration")
-async def start_registration_callback(callback: types.CallbackQuery):
+async def start_registration_callback(callback: types.CallbackQuery, state: FSMContext):
     """Обработка нажатия кнопки Начать"""
-    from keyboards.inline import get_role_keyboard
-    from states.states import RegistrationStates
-
     await callback.message.edit_text(
         "Отлично! Давайте создадим вашу анкету.\n"
         "Для начала выберите вашу роль:",
         reply_markup=get_role_keyboard()
     )
+    await state.set_state(RegistrationStates.choosing_role)
     await callback.answer()
-    await callback.message.bot.state.set_state(callback.from_user.id, RegistrationStates.choosing_role, callback.message.chat.id)
 
 
 @router.callback_query(F.data == "main_menu")

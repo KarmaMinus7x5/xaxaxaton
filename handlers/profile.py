@@ -1,14 +1,15 @@
 from aiogram import types, F, Router
+from aiogram.fsm.context import FSMContext
 
 from database.database import async_session
 from database.crud import get_user, delete_user_data
-from handlers.inline import get_back_to_menu_keyboard, get_settings_keyboard, get_delete_confirmation_keyboard, get_start_keyboard
+from handlers.inline import get_back_to_menu_keyboard, get_settings_keyboard, get_delete_confirmation_keyboard, get_start_keyboard  # Исправлен импорт
 from utils.formatters import format_profile_with_stats
 
-router = Router()
+profile_router = Router()
 
 
-@router.callback_query(F.data == "my_profile")
+@profile_router.callback_query(F.data == "my_profile")
 async def show_profile(callback: types.CallbackQuery):
     """Показать профиль пользователя"""
     async with async_session() as session:
@@ -37,7 +38,7 @@ async def show_profile(callback: types.CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data == "settings")
+@profile_router.callback_query(F.data == "settings")
 async def show_settings(callback: types.CallbackQuery):
     """Показать настройки"""
     await callback.message.edit_text(
@@ -49,7 +50,7 @@ async def show_settings(callback: types.CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data == "delete_profile")
+@profile_router.callback_query(F.data == "delete_profile")
 async def ask_delete_confirmation(callback: types.CallbackQuery):
     """Запрос подтверждения удаления"""
     await callback.message.edit_text(
@@ -62,8 +63,8 @@ async def ask_delete_confirmation(callback: types.CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data == "confirm_delete")
-async def confirm_delete(callback: types.CallbackQuery, state):
+@profile_router.callback_query(F.data == "confirm_delete")
+async def confirm_delete(callback: types.CallbackQuery, state: FSMContext):
     """Подтверждение удаления"""
     async with async_session() as session:
         if await delete_user_data(session, callback.from_user.id):
@@ -78,7 +79,7 @@ async def confirm_delete(callback: types.CallbackQuery, state):
     await callback.answer()
 
 
-@router.callback_query(F.data == "edit_profile")
+@profile_router.callback_query(F.data == "edit_profile")
 async def edit_profile_stub(callback: types.CallbackQuery):
     """Заглушка для редактирования профиля"""
     await callback.answer("Функция в разработке", show_alert=True)

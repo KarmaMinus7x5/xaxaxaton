@@ -1,20 +1,17 @@
-"""
-Обработчики регистрации пользователей
-"""
 from aiogram import types, F, Router
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 
 from database.database import async_session
 from database.crud import get_user, create_user
-from handlers.inline import get_role_keyboard, get_tags_keyboard, get_skip_photo_keyboard, get_main_menu_keyboard
+from handlers.inline import get_role_keyboard, get_tags_keyboard, get_skip_photo_keyboard, get_main_menu_keyboard  # Исправлен импорт
 from states.states import RegistrationStates
 from utils.formatters import format_profile
 
-router = Router()
+registration_router = Router()
 
 
-@router.callback_query(F.data == "register")
+@registration_router.callback_query(F.data == "register")
 async def start_registration(callback: types.CallbackQuery, state: FSMContext):
     """Начало регистрации из меню"""
     async with async_session() as session:
@@ -33,7 +30,7 @@ async def start_registration(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.callback_query(StateFilter(RegistrationStates.choosing_role))
+@registration_router.callback_query(StateFilter(RegistrationStates.choosing_role))
 async def process_role_choice(callback: types.CallbackQuery, state: FSMContext):
     """Обработка выбора роли"""
     role = "student" if callback.data == "role_student" else "mentor"
@@ -47,7 +44,7 @@ async def process_role_choice(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(StateFilter(RegistrationStates.entering_name))
+@registration_router.message(StateFilter(RegistrationStates.entering_name))
 async def process_name(message: types.Message, state: FSMContext):
     """Обработка ввода имени"""
     await state.update_data(name=message.text)
@@ -59,7 +56,7 @@ async def process_name(message: types.Message, state: FSMContext):
     await state.set_state(RegistrationStates.entering_description)
 
 
-@router.message(StateFilter(RegistrationStates.entering_description))
+@registration_router.message(StateFilter(RegistrationStates.entering_description))
 async def process_description(message: types.Message, state: FSMContext):
     """Обработка описания"""
     description = None if message.text == "-" else message.text
@@ -79,7 +76,7 @@ async def process_description(message: types.Message, state: FSMContext):
         await state.set_state(RegistrationStates.entering_projects_count)
 
 
-@router.message(StateFilter(RegistrationStates.entering_course))
+@registration_router.message(StateFilter(RegistrationStates.entering_course))
 async def process_course(message: types.Message, state: FSMContext):
     """Обработка курса (для студентов)"""
     await state.update_data(course_info=message.text)
@@ -95,7 +92,7 @@ async def process_course(message: types.Message, state: FSMContext):
     await state.set_state(RegistrationStates.choosing_tags)
 
 
-@router.message(StateFilter(RegistrationStates.entering_projects_count))
+@registration_router.message(StateFilter(RegistrationStates.entering_projects_count))
 async def process_projects_count(message: types.Message, state: FSMContext):
     """Обработка количества проектов (только для менторов)"""
     try:
@@ -113,7 +110,7 @@ async def process_projects_count(message: types.Message, state: FSMContext):
         await message.answer("Пожалуйста, введите число:")
 
 
-@router.callback_query(StateFilter(RegistrationStates.choosing_tags))
+@registration_router.callback_query(StateFilter(RegistrationStates.choosing_tags))
 async def process_tag_choice(callback: types.CallbackQuery, state: FSMContext):
     """Обработка выбора технологий"""
     if callback.data == "tags_done":
@@ -144,7 +141,7 @@ async def process_tag_choice(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(StateFilter(RegistrationStates.entering_photo), F.photo)
+@registration_router.message(StateFilter(RegistrationStates.entering_photo), F.photo)
 async def process_photo(message: types.Message, state: FSMContext):
     """Обработка фото"""
     photo_id = message.photo[-1].file_id
@@ -160,7 +157,7 @@ async def process_photo(message: types.Message, state: FSMContext):
     await complete_registration(message, state)
 
 
-@router.callback_query(StateFilter(RegistrationStates.entering_photo), F.data == "skip_photo")
+@registration_router.callback_query(StateFilter(RegistrationStates.entering_photo), F.data == "skip_photo")
 async def skip_photo(callback: types.CallbackQuery, state: FSMContext):
     """Пропуск фото"""
     await callback.answer("Фото пропущено")
