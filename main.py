@@ -37,7 +37,7 @@ def register_routers(dp: Dispatcher):
     dp.include_router(registration.router)
     dp.include_router(browsing.router)
     dp.include_router(profile.router)
-    dp.include_router(likes.router)
+    dp.include_router(likes.likes_router)  # Обратите внимание на изменение
 
 
 async def main():

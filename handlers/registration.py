@@ -7,30 +7,30 @@ from aiogram.fsm.context import FSMContext
 
 from database.database import async_session
 from database.crud import get_user, create_user
-from keyboards.reply import get_main_keyboard
-from keyboards.inline import get_role_keyboard, get_tags_keyboard, get_skip_photo_keyboard
+from keyboards.inline import get_role_keyboard, get_tags_keyboard, get_skip_photo_keyboard, get_main_menu_keyboard
 from states.states import RegistrationStates
 from utils.formatters import format_profile
 
 router = Router()
 
 
-@router.message(F.text == "📝 Регистрация")
-async def start_registration(message: types.Message, state: FSMContext):
-    """Начало регистрации"""
+@router.callback_query(F.data == "register")
+async def start_registration(callback: types.CallbackQuery, state: FSMContext):
+    """Начало регистрации из меню"""
     async with async_session() as session:
-        user = await get_user(session, str(message.from_user.id))
+        user = await get_user(session, str(callback.from_user.id))
 
         if user:
-            await message.answer("Вы уже зарегистрированы!")
+            await callback.answer("Вы уже зарегистрированы!", show_alert=True)
             return
 
-    await message.answer(
+    await callback.message.edit_text(
         "Отлично! Давайте создадим вашу анкету.\n"
         "Для начала выберите вашу роль:",
         reply_markup=get_role_keyboard()
     )
     await state.set_state(RegistrationStates.choosing_role)
+    await callback.answer()
 
 
 @router.callback_query(StateFilter(RegistrationStates.choosing_role))
@@ -40,10 +40,11 @@ async def process_role_choice(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(role=role)
 
     await callback.message.edit_text(
-        f"Вы выбрали: {'Студент' if role == 'student' else 'Ментор'}\n\n"
+        f"Вы выбрали: {'👨‍🎓 Студент' if role == 'student' else '👨‍🏫 Ментор'}\n\n"
         "Теперь введите ваше полное имя:"
     )
     await state.set_state(RegistrationStates.entering_name)
+    await callback.answer()
 
 
 @router.message(StateFilter(RegistrationStates.entering_name))
@@ -71,6 +72,7 @@ async def process_description(message: types.Message, state: FSMContext):
         )
         await state.set_state(RegistrationStates.entering_course)
     else:
+        # Для менторов сразу переходим к количеству проектов
         await message.answer(
             "Сколько проектов вы реализовали? Введите число:"
         )
@@ -81,16 +83,21 @@ async def process_description(message: types.Message, state: FSMContext):
 async def process_course(message: types.Message, state: FSMContext):
     """Обработка курса (для студентов)"""
     await state.update_data(course_info=message.text)
+    # Для студентов не спрашиваем количество проектов, ставим 0 по умолчанию
+    await state.update_data(projects_count=0)
 
     await message.answer(
-        "Сколько проектов вы реализовали? Введите число:"
+        "Теперь выберите технологии, которые вы изучаете или с которыми хотите работать.\n"
+        "Можно выбрать несколько:",
+        reply_markup=get_tags_keyboard()
     )
-    await state.set_state(RegistrationStates.entering_projects_count)
+    await state.update_data(tags=[])
+    await state.set_state(RegistrationStates.choosing_tags)
 
 
 @router.message(StateFilter(RegistrationStates.entering_projects_count))
 async def process_projects_count(message: types.Message, state: FSMContext):
-    """Обработка количества проектов"""
+    """Обработка количества проектов (только для менторов)"""
     try:
         count = int(message.text)
         await state.update_data(projects_count=count)
@@ -134,22 +141,33 @@ async def process_tag_choice(callback: types.CallbackQuery, state: FSMContext):
         await state.update_data(tags=tags)
         await callback.message.edit_reply_markup(reply_markup=get_tags_keyboard(tags))
 
+    await callback.answer()
+
 
 @router.message(StateFilter(RegistrationStates.entering_photo), F.photo)
 async def process_photo(message: types.Message, state: FSMContext):
     """Обработка фото"""
     photo_id = message.photo[-1].file_id
     await state.update_data(photo_url=photo_id)
+
+    # Удаляем сообщение с инструкцией
+    try:
+        # Получаем последнее сообщение бота для удаления
+        await message.bot.delete_message(message.chat.id, message.message_id - 1)
+    except:
+        pass
+
     await complete_registration(message, state)
 
 
 @router.callback_query(StateFilter(RegistrationStates.entering_photo), F.data == "skip_photo")
 async def skip_photo(callback: types.CallbackQuery, state: FSMContext):
     """Пропуск фото"""
-    await complete_registration(callback, state)
+    await callback.answer("Фото пропущено")
+    await complete_registration(callback, state, edit_message=True)
 
 
-async def complete_registration(source, state: FSMContext):
+async def complete_registration(source, state: FSMContext, edit_message: bool = False):
     """Завершение регистрации"""
     data = await state.get_data()
 
@@ -168,12 +186,31 @@ async def complete_registration(source, state: FSMContext):
             data
         )
 
-        await message.answer(
-            "✅ Регистрация завершена!\n\n"
+        profile_text = (
+            "✅ <b>Регистрация завершена!</b>\n\n"
             f"Ваша анкета:\n{format_profile(user)}\n\n"
-            "Теперь вы можете начать поиск!",
-            reply_markup=get_main_keyboard(True),
-            parse_mode="HTML"
+            "Теперь вы можете начать поиск!"
         )
+
+        if edit_message and isinstance(source, types.CallbackQuery):
+            await message.edit_text(
+                profile_text,
+                reply_markup=get_main_menu_keyboard(),
+                parse_mode="HTML"
+            )
+        else:
+            if user.photo_url:
+                await message.answer_photo(
+                    photo=user.photo_url,
+                    caption=profile_text,
+                    reply_markup=get_main_menu_keyboard(),
+                    parse_mode="HTML"
+                )
+            else:
+                await message.answer(
+                    profile_text,
+                    reply_markup=get_main_menu_keyboard(),
+                    parse_mode="HTML"
+                )
 
     await state.clear()

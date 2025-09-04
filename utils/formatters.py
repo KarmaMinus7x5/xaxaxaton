@@ -18,7 +18,9 @@ def format_profile(user: User) -> str:
     if user.description:
         text += f"<b>О себе:</b> {user.description}\n"
 
-    text += f"<b>Количество проектов:</b> {user.projects_count}\n"
+    # Показываем количество проектов только для менторов или если у студента > 0
+    if user.role == "mentor" or (user.role == "student" and user.projects_count > 0):
+        text += f"<b>Количество проектов:</b> {user.projects_count}\n"
 
     if user.tags:
         tags_str = ", ".join([f"#{tag.name}" for tag in user.tags])
@@ -53,6 +55,10 @@ def format_likes_list(user: User) -> str:
         text += "🎉 <b>Взаимные лайки:</b>\n"
         for like in mutual_likes:
             text += f"• {like.from_user.full_name}"
+            # Добавляем username если есть для возможности связаться
+            from_user = like.from_user
+            if hasattr(from_user, 'telegram_username') and from_user.telegram_username:
+                text += f" (@{from_user.telegram_username})"
             text += "\n"
         text += "\n"
 

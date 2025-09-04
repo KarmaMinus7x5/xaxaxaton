@@ -7,8 +7,7 @@ from aiogram.fsm.context import FSMContext
 
 from database.database import async_session
 from database.crud import get_user, get_next_profile, create_like
-from keyboards.reply import get_main_keyboard
-from keyboards.inline import get_profile_keyboard
+from keyboards.inline import get_profile_keyboard, get_main_menu_keyboard
 from states.states import BrowsingStates
 from utils.formatters import format_profile
 from bot import bot
@@ -16,39 +15,41 @@ from bot import bot
 router = Router()
 
 
-@router.message(F.text == "🔍 Смотреть анкеты")
-async def start_browsing(message: types.Message, state: FSMContext):
+@router.callback_query(F.data == "browse_profiles")
+async def start_browsing(callback: types.CallbackQuery, state: FSMContext):
     """Начать просмотр анкет"""
     async with async_session() as session:
-        user = await get_user(session, str(message.from_user.id))
+        user = await get_user(session, str(callback.from_user.id))
 
         if not user:
-            await message.answer("Сначала нужно зарегистрироваться!")
+            await callback.answer("Сначала нужно зарегистрироваться!", show_alert=True)
             return
 
-        next_profile = await get_next_profile(session, str(message.from_user.id))
+        next_profile = await get_next_profile(session, str(callback.from_user.id))
 
         if not next_profile:
-            await message.answer(
+            await callback.message.edit_text(
                 "😔 Анкеты закончились!\n"
                 "Попробуйте зайти позже или измените фильтры.\n\n"
                 "<i>💡 Совет: используйте команду /reset чтобы сбросить свои данные и посмотреть анкеты заново</i>",
-                reply_markup=get_main_keyboard(True),
+                reply_markup=get_main_menu_keyboard(),
                 parse_mode="HTML"
             )
+            await callback.answer()
             return
 
         profile_text = format_profile(next_profile)
 
         if next_profile.photo_url:
-            await message.answer_photo(
+            await callback.message.delete()
+            await callback.message.answer_photo(
                 photo=next_profile.photo_url,
                 caption=profile_text,
                 reply_markup=get_profile_keyboard(),
                 parse_mode="HTML"
             )
         else:
-            await message.answer(
+            await callback.message.edit_text(
                 profile_text,
                 reply_markup=get_profile_keyboard(),
                 parse_mode="HTML"
@@ -56,6 +57,7 @@ async def start_browsing(message: types.Message, state: FSMContext):
 
         await state.update_data(current_profile_id=next_profile.id)
         await state.set_state(BrowsingStates.viewing_profiles)
+        await callback.answer()
 
 
 @router.callback_query(StateFilter(BrowsingStates.viewing_profiles))
@@ -64,10 +66,11 @@ async def handle_profile_action(callback: types.CallbackQuery, state: FSMContext
     if callback.data == "main_menu":
         await callback.message.delete()
         await callback.message.answer(
-            "Вы в главном меню:",
-            reply_markup=get_main_keyboard(True)
+            "Главное меню:",
+            reply_markup=get_main_menu_keyboard()
         )
         await state.clear()
+        await callback.answer()
         return
 
     data = await state.get_data()
@@ -106,7 +109,7 @@ async def handle_profile_action(callback: types.CallbackQuery, state: FSMContext
                 except:
                     pass  # Пользователь мог заблокировать бота
             else:
-                await callback.answer("❤️ Лайк отправлен!", show_alert=True)
+                await callback.answer("❤️ Лайк отправлен!")
 
         elif callback.data == "skip":
             await callback.answer("Пропускаем...")
@@ -115,26 +118,43 @@ async def handle_profile_action(callback: types.CallbackQuery, state: FSMContext
         next_profile = await get_next_profile(session, str(callback.from_user.id))
 
         if not next_profile:
-            await callback.message.delete()
-            await callback.message.answer(
-                "😔 Анкеты закончились!\n"
-                "Попробуйте зайти позже.",
-                reply_markup=get_main_keyboard(True)
-            )
+            if callback.message.photo:
+                await callback.message.delete()
+                await callback.message.answer(
+                    "😔 Анкеты закончились!\n"
+                    "Попробуйте зайти позже.",
+                    reply_markup=get_main_menu_keyboard()
+                )
+            else:
+                await callback.message.edit_text(
+                    "😔 Анкеты закончились!\n"
+                    "Попробуйте зайти позже.",
+                    reply_markup=get_main_menu_keyboard()
+                )
             await state.clear()
+            await callback.answer()
             return
 
         profile_text = format_profile(next_profile)
 
-        if next_profile.photo_url:
+        # Если текущее сообщение с фото или следующий профиль с фото - удаляем и создаем новое
+        if callback.message.photo or next_profile.photo_url:
             await callback.message.delete()
-            await callback.message.answer_photo(
-                photo=next_profile.photo_url,
-                caption=profile_text,
-                reply_markup=get_profile_keyboard(),
-                parse_mode="HTML"
-            )
+            if next_profile.photo_url:
+                await callback.message.answer_photo(
+                    photo=next_profile.photo_url,
+                    caption=profile_text,
+                    reply_markup=get_profile_keyboard(),
+                    parse_mode="HTML"
+                )
+            else:
+                await callback.message.answer(
+                    profile_text,
+                    reply_markup=get_profile_keyboard(),
+                    parse_mode="HTML"
+                )
         else:
+            # Если оба без фото - просто редактируем текст
             await callback.message.edit_text(
                 profile_text,
                 reply_markup=get_profile_keyboard(),
@@ -142,3 +162,4 @@ async def handle_profile_action(callback: types.CallbackQuery, state: FSMContext
             )
 
         await state.update_data(current_profile_id=next_profile.id)
+        await callback.answer()
