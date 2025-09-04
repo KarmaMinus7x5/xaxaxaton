@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 
 from database.database import async_session
 from database.crud import get_user, create_user
-from keyboards.inline import get_role_keyboard, get_tags_keyboard, get_skip_photo_keyboard, get_main_menu_keyboard
+from handlers.inline import get_role_keyboard, get_tags_keyboard, get_skip_photo_keyboard, get_main_menu_keyboard
 from states.states import RegistrationStates
 from utils.formatters import format_profile
 

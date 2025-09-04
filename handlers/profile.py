@@ -2,7 +2,7 @@ from aiogram import types, F, Router
 
 from database.database import async_session
 from database.crud import get_user, delete_user_data
-from keyboards.inline import get_back_to_menu_keyboard, get_settings_keyboard, get_delete_confirmation_keyboard, get_start_keyboard
+from handlers.inline import get_back_to_menu_keyboard, get_settings_keyboard, get_delete_confirmation_keyboard, get_start_keyboard
 from utils.formatters import format_profile_with_stats
 
 router = Router()
