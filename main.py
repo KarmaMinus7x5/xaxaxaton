@@ -34,10 +34,10 @@ logger = logging.getLogger(__name__)
 def register_routers(dp: Dispatcher):
     """Регистрация всех роутеров"""
     dp.include_router(start.router)
-    dp.include_router(registration.router)
+    dp.include_router(registration.registration_router)  # Исправлено
     dp.include_router(browsing.router)
-    dp.include_router(profile.router)
-    dp.include_router(likes.likes_router)  # Обратите внимание на изменение
+    dp.include_router(profile.profile_router)  # Исправлено
+    dp.include_router(likes.likes_router)
 
 
 async def main():
